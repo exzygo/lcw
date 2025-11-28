@@ -1,47 +1,32 @@
 #!/bin/bash
 
-PROJECT_DIR="$(pwd)"
-
-BUILD_DIR="$PROJECT_DIR/build"
+BUILD_DIR="$(pwd)"
 LUA_SCRIPT="$BUILD_DIR/watch.lua"
 BUILD_TXT="$BUILD_DIR/lbuild.txt"
 
-SETUP_SRC="/usr/local/share/lcw/setup/watch.lua"
-
-setup_build() {
-    echo "- - - [LCW::SETUP] Creating build directory..."
+if [ "$1" == "--setup" ]; then
+    echo "[LCW::SETUP] Creating build directory and default config..."
     mkdir -p "$BUILD_DIR"
 
-    echo "- - - [LCW::SETUP] Copying watch.lua to build directory..."
-    if [ ! -f "$SETUP_SRC" ]; then
-        echo "- - - [LCW:: ERROR] Setup file not founded on: $SETUP_SRC"
-        echo "                    install then with the 'install.sh' lcw script"
-        exit 1
-    fi
-
-    cp "$SETUP_SRC" "$LUA_SCRIPT"
+    cp /usr/local/share/lcw/setup/watch.lua "$LUA_SCRIPT"
 
     if [ ! -f "$BUILD_TXT" ]; then
-        echo "- - - [LCW::SETUP] Creating lbuild.txt..."
-        echo "gcc main.c -o out -Wall" > "$BUILD_TXT"
+        echo "gcc *.c -o out -Wall" > "$BUILD_TXT"
     fi
 
-    echo "- - - [LCW::SETUP] Setup finished!"
-}
-
-run_lua() {
-    if [ ! -f "$LUA_SCRIPT" ]; then
-        echo "- - - [LCW::ERROR] watch.lua script not founded! Execute lcw --setup."
-        exit 1
-    fi
-
-    echo "- - - [LCW::INIT_W] Initiating watching process..."
-    lua "$LUA_SCRIPT"
-}
-
-if [ "$1" == "--setup" ]; then
-    setup_build
-else
-    run_lua
+    echo "[LCW::SETUP] Setup finished!"
+    exit 0
 fi
+
+if [ -z "$1" ]; then
+    echo "[LCW::ERROR] Expected project directory argument"
+    echo "Usage: lcw <project_dir>"
+    exit 1
+fi
+
+PROJECT_DIR="$1"
+
+echo "[LCW::INIT] Starting watcher..."
+
+lua "$LUA_SCRIPT" "$PROJECT_DIR"
 

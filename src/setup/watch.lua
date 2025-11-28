@@ -1,7 +1,30 @@
 local lfs = require("lfs")
 
-local PROJECT_DIR = ".."
 local BUILD_DIR = lfs.currentdir()
+
+local PROJECT_DIR = arg[1]
+
+if not PROJECT_DIR then
+    print("[LCW::ERROR] Missing project directory argument")
+    os.exit(1)
+end
+
+local function abspath(path)
+    local old = lfs.currentdir()
+    local ok = lfs.chdir(path)
+    if not ok then
+        print("[LCW::ERROR] Invalid project directory: " .. path)
+        os.exit(1)
+    end
+    local abs = lfs.currentdir()
+    lfs.chdir(old)
+    return abs
+end
+
+PROJECT_DIR = abspath(PROJECT_DIR)
+
+print("[LCW::W] Watching project directory:", PROJECT_DIR)
+print("[LCW::W] Build directory:           ", BUILD_DIR)
 
 local function sleep(seconds)
     local target = os.clock() + seconds
@@ -9,9 +32,11 @@ local function sleep(seconds)
 end
 
 local function read_build()
-    local f = io.open("lbuild.txt", "r")
+    local path = BUILD_DIR .. "/lbuild.txt"
+    local f = io.open(path, "r")
     if not f then
-        print("- - - [LCW::ERROR] lbuild.txt not founded on ./build/")
+        print("[LCW::ERROR] lbuild.txt not found in build directory")
+        print("Path: " .. path)
         os.exit(1)
     end
     local cmd = f:read("*l")
@@ -19,54 +44,42 @@ local function read_build()
     return cmd
 end
 
-local function get_files_mtime()
-    local mtimes = {}
-
-    for file in lfs.dir(PROJECT_DIR) do
-        if file:match("%.c$") or file:match("%.h$") then
-            local path = PROJECT_DIR .. "/" .. file
-            local attr = lfs.attributes(path)
-            if attr then
-                mtimes[path] = attr.modification
-            end
+local function get_mtimes()
+    local mt = {}
+    for f in lfs.dir(PROJECT_DIR) do
+        if f:match("%.c$") or f:match("%.h$") then
+            local p = PROJECT_DIR .. "/" .. f
+            local a = lfs.attributes(p)
+            if a then mt[p] = a.modification end
         end
     end
-
-    return mtimes
+    return mt
 end
 
-local function changed(previous, current)
-    for file, time in pairs(current) do
-        if previous[file] == nil or previous[file] ~= time then
-            return true
-        end
+local function changed(prev, curr)
+    for f, t in pairs(curr) do
+        if prev[f] ~= t then return true end
     end
     return false
 end
 
-local old_times = get_files_mtime()
-print("- - - [LCW::W] Reading .c e .h on: " .. PROJECT_DIR)
+local old = get_mtimes()
 
 while true do
     sleep(1)
+    local new = get_mtimes()
 
-    local new_times = get_files_mtime()
-    if changed(old_times, new_times) then
-        print("- - - [LCW::W] Change detected! Recompiling...")
+    if changed(old, new) then
+        print("[LCW::W] Change detected! Running build...")
 
         local cmd = read_build()
-        print("- - - [LCW::W] Executing: " .. cmd)
 
-        local ok, err = lfs.chdir(PROJECT_DIR)
+        local olddir = lfs.currentdir()
+        lfs.chdir(PROJECT_DIR)
+        os.execute(cmd)
+        lfs.chdir(olddir)
 
-        if not ok then
-            print("- - - [LCW::W] Error when changing directories: " .. err)
-        else
-            os.execute(cmd)
-            lfs.chdir(BUILD_DIR)
-        end
-
-        print("- - - [LCW::W] Compilation finished.")
-        old_times = new_times
+        print("[LCW::W] Done.")
+        old = new
     end
 end
