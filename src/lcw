@@ -26,7 +26,7 @@ setup_build() {
         echo "gcc main.c -o out -Wall" > "$BUILD_TXT"
     fi
 
-    echo "- - - [LCW::SETUP] Setup concluído!"
+    echo "- - - [LCW::SETUP] Setup finished!"
 }
 
 run_lua() {
